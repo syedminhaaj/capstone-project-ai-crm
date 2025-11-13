@@ -1,4 +1,4 @@
-#!/workspaces/capstone-project-ai-crm/backend/venv/bin/python
+#!/Users/syedminhaj/React/capstone-project-ai-crm/backend/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

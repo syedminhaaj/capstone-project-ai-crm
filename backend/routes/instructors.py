@@ -1,23 +1,26 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from typing import List
+from flask import Blueprint, request, jsonify
+from db import get_connection
 
-from database import get_db
-from models import Instructor
-from schemas import InstructorCreate, InstructorResponse
+instructors_bp = Blueprint('instructors_bp', __name__)
 
-router = APIRouter(prefix="/api/instructors", tags=["instructors"])
+@instructors_bp.route('/instructors', methods=['GET'])
+def get_instructors():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM instructors ORDER BY id DESC")
+    rows = cur.fetchall()
+    columns = [desc[0] for desc in cur.description]
+    conn.close()
+    return jsonify([dict(zip(columns, row)) for row in rows])
 
-@router.post("", response_model=InstructorResponse)
-def create_instructor(instructor: InstructorCreate, db: Session = Depends(get_db)):
-    """Add a new instructor"""
-    db_instructor = Instructor(**instructor.dict())
-    db.add(db_instructor)
-    db.commit()
-    db.refresh(db_instructor)
-    return db_instructor
-
-@router.get("", response_model=List[InstructorResponse])
-def get_instructors(db: Session = Depends(get_db)):
-    """Get all instructors"""
-    return db.query(Instructor).all()
+@instructors_bp.route('/instructors', methods=['POST'])
+def add_instructor():
+    data = request.json
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute('INSERT INTO instructors (name, email, phone) VALUES (%s, %s, %s) RETURNING *',
+                (data['name'], data.get('email'), data.get('phone')))
+    new_instr = cur.fetchone()
+    conn.commit()
+    conn.close()
+    return jsonify(dict(zip([desc[0] for desc in cur.description], new_instr))), 201

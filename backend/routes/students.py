@@ -1,124 +1,71 @@
-from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
-from sqlalchemy.orm import Session
-from typing import List
+from flask import Blueprint, request, jsonify
+from db import get_connection
 
-from database import get_db
-from models import Student
-from schemas import StudentCreate, StudentResponse, BarcodeData, ScanResponse
-from services.barcode_parser import parse_pdf417_barcode
-from services.ai_scanner import scan_license_with_ai
+students_bp = Blueprint('students_bp', __name__)
 
-router = APIRouter(prefix="/api/students", tags=["students"])
+@students_bp.route('/students', methods=['GET'])
+def get_students():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM students ORDER BY id DESC")
+    rows = cur.fetchall()
+    columns = [desc[0] for desc in cur.description]
+    conn.close()
+    return jsonify([dict(zip(columns, row)) for row in rows])
 
-@router.post("", response_model=StudentResponse)
-def create_student(student: StudentCreate, db: Session = Depends(get_db)):
-    """Add a new student"""
-    existing = db.query(Student).filter(Student.license_number == student.license_number).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="License number already exists")
-    
-    db_student = Student(**student.dict(), status="Active", lessons_completed=0)
-    db.add(db_student)
-    db.commit()
-    db.refresh(db_student)
-    return db_student
-
-@router.get("", response_model=List[StudentResponse])
-def get_students(db: Session = Depends(get_db)):
-    """Get all students"""
-    return db.query(Student).all()
-
-@router.get("/{student_id}", response_model=StudentResponse)
-def get_student(student_id: int, db: Session = Depends(get_db)):
-    """Get a specific student by ID"""
-    student = db.query(Student).filter(Student.id == student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    return student
-
-@router.put("/{student_id}", response_model=StudentResponse)
-def update_student(student_id: int, student: StudentCreate, db: Session = Depends(get_db)):
-    """Update a student"""
-    db_student = db.query(Student).filter(Student.id == student_id).first()
-    if not db_student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    for key, value in student.dict().items():
-        setattr(db_student, key, value)
-    
-    db.commit()
-    db.refresh(db_student)
-    return db_student
-
-@router.delete("/{student_id}")
-def delete_student(student_id: int, db: Session = Depends(get_db)):
-    """Delete a student"""
-    db_student = db.query(Student).filter(Student.id == student_id).first()
-    if not db_student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    db.delete(db_student)
-    db.commit()
-    return {"message": "Student deleted successfully"}
-
-@router.post("/seed-samples")
-def seed_sample_students(db: Session = Depends(get_db)):
-    """Add two sample students to the database"""
-    existing = db.query(Student).filter(
-        Student.email.in_(['sarah.johnson@example.com', 'michael.chen@example.com'])
-    ).first()
-    
-    if existing:
-        return {"message": "Sample students already exist"}
-    
-    students = [
-        Student(
-            name="Sarah Johnson",
-            email="sarah.johnson@example.com",
-            phone="(555) 123-4567",
-            license_number="D1234567",
-            date_of_birth="1998-05-15",
-            address="123 Main Street, Los Angeles, CA 90001",
-            emergency_contact="John Johnson",
-            emergency_phone="(555) 123-4568",
-            status="Active",
-            lessons_completed=8
-        ),
-        Student(
-            name="Michael Chen",
-            email="michael.chen@example.com",
-            phone="(555) 234-5678",
-            license_number="D2345678",
-            date_of_birth="2000-09-22",
-            address="456 Oak Avenue, San Francisco, CA 94102",
-            emergency_contact="Lisa Chen",
-            emergency_phone="(555) 234-5679",
-            status="Active",
-            lessons_completed=15
-        )
-    ]
-    
-    for student in students:
-        db.add(student)
-    
-    db.commit()
-    return {"message": "Sample students added successfully"}
-
-@router.post("/parse-barcode")
-def parse_barcode(data: BarcodeData):
-    """Parse PDF417 barcode data from driver's license"""
-    return parse_pdf417_barcode(data.barcode_text)
-
-@router.post("/scan-license", response_model=ScanResponse)
-async def scan_license(file: UploadFile = File(...)):
-    """Extract student information from driver's license using AI"""
+@students_bp.route('/students', methods=['POST'])
+def add_student():
+    data = request.json
     try:
-        contents = await file.read()
-        student_data = await scan_license_with_ai(contents)
-        return ScanResponse(
-            success=True,
-            message="License scanned successfully",
-            student_data=student_data
-        )
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO students (
+                name, email, phone, license_number, date_of_birth, address,
+                emergency_contact, emergency_phone, status, lessons_completed, instructor_id
+            )
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING *
+        ''', (
+            data.get('name'), data.get('email'), data.get('phone'),
+            data.get('license_number'), data.get('date_of_birth'),
+            data.get('address'), data.get('emergency_contact'),
+            data.get('emergency_phone'), data.get('status', 'Active'),
+            data.get('lessons_completed', 0), data.get('instructor_id')
+        ))
+        new_student = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return jsonify(dict(zip([desc[0] for desc in cur.description], new_student))), 201
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"error": str(e)}), 400
+
+@students_bp.route('/students/<int:id>', methods=['PUT'])
+def update_student(id):
+    data = request.json
+    fields = [
+        'name', 'email', 'phone', 'license_number', 'date_of_birth', 'address',
+        'emergency_contact', 'emergency_phone', 'status', 'lessons_completed', 'instructor_id'
+    ]
+    updates = [f"{f} = %s" for f in fields]
+    values = [data.get(f) for f in fields]
+    values.append(id)
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(f"UPDATE students SET {', '.join(updates)} WHERE id = %s RETURNING *", values)
+    updated = cur.fetchone()
+    conn.commit()
+    conn.close()
+    if not updated:
+        return jsonify({"error": "Student not found"}), 404
+    return jsonify(dict(zip([desc[0] for desc in cur.description], updated)))
+
+@students_bp.route('/students/<int:id>', methods=['DELETE'])
+def delete_student(id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM students WHERE id = %s", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Student deleted successfully"})
