@@ -1,11 +1,11 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = "http://127.0.0.1:8000/api";
 
 // Async thunks
 export const fetchStudents = createAsyncThunk(
-  'students/fetchStudents',
+  "students/fetchStudents",
   async () => {
     const response = await axios.get(`${API_URL}/students`);
     return response.data;
@@ -13,7 +13,7 @@ export const fetchStudents = createAsyncThunk(
 );
 
 export const addStudent = createAsyncThunk(
-  'students/addStudent',
+  "students/addStudent",
   async (studentData) => {
     const response = await axios.post(`${API_URL}/students`, studentData);
     return response.data;
@@ -21,7 +21,7 @@ export const addStudent = createAsyncThunk(
 );
 
 export const updateStudent = createAsyncThunk(
-  'students/updateStudent',
+  "students/updateStudent",
   async ({ id, data }) => {
     const response = await axios.put(`${API_URL}/students/${id}`, data);
     return response.data;
@@ -29,7 +29,7 @@ export const updateStudent = createAsyncThunk(
 );
 
 export const deleteStudent = createAsyncThunk(
-  'students/deleteStudent',
+  "students/deleteStudent",
   async (id) => {
     await axios.delete(`${API_URL}/students/${id}`);
     return id;
@@ -37,20 +37,20 @@ export const deleteStudent = createAsyncThunk(
 );
 
 export const parseBarcodeData = createAsyncThunk(
-  'students/parseBarcodeData',
+  "students/parseBarcodeData",
   async (barcodeText) => {
     const response = await axios.post(`${API_URL}/parse-barcode`, {
-      barcode_text: barcodeText
+      barcode_text: barcodeText,
     });
     return response.data;
   }
 );
 
 export const scanLicenseImage = createAsyncThunk(
-  'students/scanLicenseImage',
+  "students/scanLicenseImage",
   async (file) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
     const response = await axios.post(`${API_URL}/scan-license`, formData);
     return response.data.student_data;
   }
@@ -58,13 +58,14 @@ export const scanLicenseImage = createAsyncThunk(
 
 // Slice
 const studentsSlice = createSlice({
-  name: 'students',
+  name: "students",
   initialState: {
     students: [],
     loading: false,
     error: null,
     scanLoading: false,
     scannedData: null,
+    filterText: "",
   },
   reducers: {
     clearScannedData: (state) => {
@@ -72,6 +73,9 @@ const studentsSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    setFilterText: (state, action) => {
+      state.filterText = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -97,14 +101,16 @@ const studentsSlice = createSlice({
       })
       // Update student
       .addCase(updateStudent.fulfilled, (state, action) => {
-        const index = state.students.findIndex(s => s.id === action.payload.id);
+        const index = state.students.findIndex(
+          (s) => s.id === action.payload.id
+        );
         if (index !== -1) {
           state.students[index] = action.payload;
         }
       })
       // Delete student
       .addCase(deleteStudent.fulfilled, (state, action) => {
-        state.students = state.students.filter(s => s.id !== action.payload);
+        state.students = state.students.filter((s) => s.id !== action.payload);
       })
       // Parse barcode
       .addCase(parseBarcodeData.pending, (state) => {
@@ -133,5 +139,6 @@ const studentsSlice = createSlice({
   },
 });
 
-export const { clearScannedData, clearError } = studentsSlice.actions;
+export const { clearScannedData, clearError, setFilterText } =
+  studentsSlice.actions;
 export default studentsSlice.reducer;

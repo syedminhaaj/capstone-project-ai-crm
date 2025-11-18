@@ -1,14 +1,20 @@
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { Plus, Search, Filter, Mail, Phone, Edit2, Trash2 } from 'lucide-react';
-import { fetchStudents, deleteStudent } from '../../store/slices/studentSlice';
-import StudentModal from './AddStudentModal';
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Plus, Search, Filter, Mail, Phone, Edit2, Trash2 } from "lucide-react";
+import {
+  fetchStudents,
+  deleteStudent,
+  setFilterText,
+} from "../../store/slices/studentSlice";
+import StudentModal from "./AddStudentModal";
 
 const StudentTable = () => {
   const dispatch = useDispatch();
-  const { students, loading } = useSelector(state => state.students);
-  
-  const [searchTerm, setSearchTerm] = useState('');
+  const { students, filterText, loading } = useSelector(
+    (state) => state.students
+  );
+
+  const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
@@ -22,11 +28,11 @@ const StudentTable = () => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
+    if (window.confirm("Are you sure you want to delete this student?")) {
       try {
         await dispatch(deleteStudent(id)).unwrap();
       } catch (error) {
-        alert('Error deleting student');
+        alert("Error deleting student");
       }
     }
   };
@@ -42,18 +48,23 @@ const StudentTable = () => {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Completed': return 'bg-blue-100 text-blue-800';
-      case 'On Hold': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+    switch (status) {
+      case "Active":
+        return "bg-green-100 text-green-800";
+      case "Completed":
+        return "bg-blue-100 text-blue-800";
+      case "On Hold":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.license_number.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredStudents = students.filter(
+    (student) =>
+      student.name.toLowerCase().includes(filterText.toLowerCase()) ||
+      student.email.toLowerCase().includes(filterText.toLowerCase()) ||
+      student?.license_number?.toLowerCase().includes(filterText.toLowerCase())
   );
 
   if (loading) {
@@ -71,7 +82,7 @@ const StudentTable = () => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Students</h2>
-            <button 
+            <button
               onClick={handleAddNew}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
             >
@@ -86,8 +97,8 @@ const StudentTable = () => {
                 type="text"
                 placeholder="Search students..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={filterText}
+                onChange={(e) => dispatch(setFilterText(e.target.value))}
               />
             </div>
             <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
@@ -96,7 +107,7 @@ const StudentTable = () => {
             </button>
           </div>
         </div>
-        
+
         {filteredStudents.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             No students found. Add your first student to get started!
@@ -106,42 +117,74 @@ const StudentTable = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">License</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lessons</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Student
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contact
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    License
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lessons
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredStudents.map(student => (
+                {filteredStudents.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold">
-                          {student.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                          {student.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .substring(0, 2)}
                         </div>
                         <div className="ml-3">
-                          <p className="font-medium text-gray-900">{student.name}</p>
-                          <p className="text-sm text-gray-500">{student.date_of_birth}</p>
+                          <p className="font-medium text-gray-900">
+                            {student.name}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {student.date_of_birth}
+                          </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-600">
-                        <p className="flex items-center"><Mail className="w-3 h-3 mr-1" /> {student.email}</p>
-                        <p className="flex items-center mt-1"><Phone className="w-3 h-3 mr-1" /> {student.phone}</p>
+                        <p className="flex items-center">
+                          <Mail className="w-3 h-3 mr-1" /> {student.email}
+                        </p>
+                        <p className="flex items-center mt-1">
+                          <Phone className="w-3 h-3 mr-1" /> {student.phone}
+                        </p>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-mono text-gray-900">{student.license_number}</span>
+                      <span className="text-sm font-mono text-gray-900">
+                        {student.license_number}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900">{student.lessons_completed || 0} completed</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {student.lessons_completed || 0} completed
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(student.status)}`}>
+                      <span
+                        className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                          student.status
+                        )}`}
+                      >
                         {student.status}
                       </span>
                     </td>
@@ -171,8 +214,8 @@ const StudentTable = () => {
         )}
       </div>
 
-      <StudentModal 
-        isOpen={isModalOpen} 
+      <StudentModal
+        isOpen={isModalOpen}
         onClose={handleCloseModal}
         student={selectedStudent}
       />
