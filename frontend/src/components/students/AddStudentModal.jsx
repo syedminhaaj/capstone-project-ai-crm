@@ -1,64 +1,107 @@
-import { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { X, Upload, User, Mail, Phone, CreditCard, MapPin, Calendar, AlertCircle, Scan } from 'lucide-react';
-import { addStudent, updateStudent, parseBarcodeData, scanLicenseImage, clearScannedData, clearError } from '../../store/slices/studentSlice';
-import BarcodeInput from './BarcodeInput';
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  X,
+  Upload,
+  User,
+  Mail,
+  Phone,
+  CreditCard,
+  MapPin,
+  Calendar,
+  AlertCircle,
+  Scan,
+} from "lucide-react";
+import {
+  addStudent,
+  updateStudent,
+  scanLicenseImage,
+  clearScannedData,
+  clearError,
+} from "../../store/slices/studentSlice";
+import BarcodeInput from "./BarcodeInput";
+import { parseLicenseTextToStudent } from "../../utils/licenseParser";
 
 const StudentModal = ({ isOpen, onClose, student = null }) => {
   const dispatch = useDispatch();
-  const { scanLoading, scannedData, error } = useSelector(state => state.students);
-  
+
+  // from Redux: only used for image-based scan & global error
+  const {
+    scanLoading: scanLicenseLoading, // renamed to avoid clash
+    scannedData,
+    error,
+  } = useSelector((state) => state.students);
+
   const [mode, setMode] = useState(null); // 'scan', 'barcode', 'manual'
-  const [localError, setLocalError] = useState('');
-  
+  const [localError, setLocalError] = useState("");
+  const [barcodeLoading, setBarcodeLoading] = useState(false); // local loading for barcode scan
+  const [licenseRaw, setLicenseRaw] = useState(null); // optional raw license data
+
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    license_number: '',
-    address: '',
-    date_of_birth: '',
-    emergency_contact: '',
-    emergency_phone: '',
+    name: "",
+    email: "",
+    phone: "",
+    license_number: "",
+    address: "",
+    date_of_birth: "",
+    emergency_contact: "",
+    emergency_phone: "",
   });
 
   // If editing, pre-fill the form
   useEffect(() => {
     if (student) {
       setFormData({
-        name: student.name || '',
-        email: student.email || '',
-        phone: student.phone || '',
-        license_number: student.license_number || '',
-        address: student.address || '',
-        date_of_birth: student.date_of_birth || '',
-        emergency_contact: student.emergency_contact || '',
-        emergency_phone: student.emergency_phone || '',
+        name: student.name || "",
+        email: student.email || "",
+        phone: student.phone || "",
+        license_number: student.license_number || "",
+        address: student.address || "",
+        date_of_birth: student.date_of_birth || "",
+        emergency_contact: student.emergency_contact || "",
+        emergency_phone: student.emergency_phone || "",
       });
-      setMode('manual'); // Go directly to form for editing
+      setMode("manual"); // Go directly to form for editing
     }
   }, [student]);
 
-  // Auto-fill form when barcode/scan data is available
+  // Auto-fill form when image-scan data from backend is available
   useEffect(() => {
     if (scannedData) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         name: scannedData.name || prev.name,
         license_number: scannedData.license_number || prev.license_number,
         date_of_birth: scannedData.date_of_birth || prev.date_of_birth,
         address: scannedData.address || prev.address,
       }));
-      setMode('manual'); // Show form with pre-filled data
+      setMode("manual"); // Show form with pre-filled data
     }
   }, [scannedData]);
 
-  const handleBarcodeScanned = async (barcodeText) => {
-    setLocalError('');
+  const handleBarcodeScanned = (barcodeText) => {
     try {
-      await dispatch(parseBarcodeData(barcodeText)).unwrap();
-    } catch (err) {
-      setLocalError('Error parsing barcode. Please try manual entry.');
+      setLocalError("");
+      setBarcodeLoading(true);
+
+      const { student: parsedStudent, licenseRaw: raw } =
+        parseLicenseTextToStudent(barcodeText);
+
+      setFormData((prev) => ({
+        ...prev,
+        name: parsedStudent.name || prev.name,
+        license_number: parsedStudent.license_number || prev.license_number,
+        date_of_birth: parsedStudent.date_of_birth || prev.date_of_birth,
+        address: parsedStudent.address || prev.address,
+      }));
+
+      setLicenseRaw(raw);
+      setMode("manual");
+    } catch (e) {
+      console.error(e);
+      setLocalError("Could not parse license data. Please try manual entry.");
+    } finally {
+      setBarcodeLoading(false);
     }
   };
 
@@ -66,11 +109,13 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    setLocalError('');
+    setLocalError("");
     try {
       await dispatch(scanLicenseImage(file)).unwrap();
+      // scannedData will be populated, useEffect will move to manual mode
     } catch (err) {
-      setLocalError('Error scanning license image. Please try manual entry.');
+      console.error(err);
+      setLocalError("Error scanning license image. Please try manual entry.");
     }
   };
 
@@ -83,37 +128,41 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLocalError('');
+    setLocalError("");
 
     try {
       if (student) {
         // Update existing student
-        await dispatch(updateStudent({ id: student.id, data: formData })).unwrap();
+        await dispatch(
+          updateStudent({ id: student.id, data: formData })
+        ).unwrap();
       } else {
         // Add new student
         await dispatch(addStudent(formData)).unwrap();
       }
       handleClose();
     } catch (err) {
-      setLocalError(err.message || 'Error saving student. Please try again.');
+      console.error(err);
+      setLocalError(err.message || "Error saving student. Please try again.");
     }
   };
 
   const handleClose = () => {
     setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      license_number: '',
-      address: '',
-      date_of_birth: '',
-      emergency_contact: '',
-      emergency_phone: '',
+      name: "",
+      email: "",
+      phone: "",
+      license_number: "",
+      address: "",
+      date_of_birth: "",
+      emergency_contact: "",
+      emergency_phone: "",
     });
     setMode(null);
     dispatch(clearScannedData());
     dispatch(clearError());
-    setLocalError('');
+    setLocalError("");
+    setLicenseRaw(null);
     onClose();
   };
 
@@ -125,7 +174,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
           <h2 className="text-2xl font-bold text-gray-900">
-            {student ? 'Edit Student' : 'Add New Student'}
+            {student ? "Edit Student" : "Add New Student"}
           </h2>
           <button
             onClick={handleClose}
@@ -137,13 +186,16 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
 
         {/* Content */}
         <div className="p-6">
+          {/* Mode chooser */}
           {!mode && !student && (
             <div className="space-y-4">
-              <p className="text-gray-600 mb-6">Choose how you'd like to add the student:</p>
-              
+              <p className="text-gray-600 mb-6">
+                Choose how you'd like to add the student:
+              </p>
+
               {/* Barcode Scanner Option */}
               <button
-                onClick={() => setMode('barcode')}
+                onClick={() => setMode("barcode")}
                 className="w-full p-6 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all group"
               >
                 <div className="flex items-center space-x-4">
@@ -151,15 +203,19 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                     <Scan className="w-6 h-6 text-purple-600" />
                   </div>
                   <div className="text-left">
-                    <h3 className="text-lg font-semibold text-gray-900">Scan Barcode</h3>
-                    <p className="text-sm text-gray-600">Use barcode scanner to read PDF417 barcode</p>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Scan Barcode
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Use barcode scanner to read PDF417 barcode
+                    </p>
                   </div>
                 </div>
               </button>
 
               {/* Image Upload Option */}
               <button
-                onClick={() => setMode('scan')}
+                onClick={() => setMode("scan")}
                 className="w-full p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
               >
                 <div className="flex items-center space-x-4">
@@ -167,15 +223,19 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                     <Upload className="w-6 h-6 text-blue-600" />
                   </div>
                   <div className="text-left">
-                    <h3 className="text-lg font-semibold text-gray-900">Upload License Image</h3>
-                    <p className="text-sm text-gray-600">AI will extract information from photo</p>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Upload License Image
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      AI will extract information from photo
+                    </p>
                   </div>
                 </div>
               </button>
 
               {/* Manual Entry Option */}
               <button
-                onClick={() => setMode('manual')}
+                onClick={() => setMode("manual")}
                 className="w-full p-6 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group"
               >
                 <div className="flex items-center space-x-4">
@@ -183,16 +243,20 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                     <User className="w-6 h-6 text-green-600" />
                   </div>
                   <div className="text-left">
-                    <h3 className="text-lg font-semibold text-gray-900">Manual Entry</h3>
-                    <p className="text-sm text-gray-600">Type all details manually</p>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Manual Entry
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Type all details manually
+                    </p>
                   </div>
                 </div>
               </button>
             </div>
           )}
 
-          {/* Barcode Scanner Mode */}
-          {mode === 'barcode' && !scannedData && (
+          {/* Barcode Scanner Mode (front-end parsing) */}
+          {mode === "barcode" && (
             <div>
               <button
                 onClick={() => setMode(null)}
@@ -200,16 +264,16 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
               >
                 <span>← Back</span>
               </button>
-              
-              <BarcodeInput 
+
+              <BarcodeInput
                 onBarcodeScanned={handleBarcodeScanned}
-                loading={scanLoading}
+                loading={barcodeLoading}
               />
             </div>
           )}
 
-          {/* Image Upload Mode */}
-          {mode === 'scan' && !scannedData && (
+          {/* Image Upload Mode (backend parsing via AI) */}
+          {mode === "scan" && !scannedData && (
             <div>
               <button
                 onClick={() => setMode(null)}
@@ -217,11 +281,11 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
               >
                 <span>← Back</span>
               </button>
-              
+
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Upload Driver's License Photo
+                  Upload Driver&apos;s License Photo
                 </h3>
                 <p className="text-sm text-gray-600 mb-4">
                   AI will extract name, license number, DOB, and address
@@ -232,10 +296,10 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                     accept="image/*"
                     onChange={handleImageUpload}
                     className="hidden"
-                    disabled={scanLoading}
+                    disabled={scanLicenseLoading}
                   />
                   <span className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg cursor-pointer inline-block transition-colors">
-                    {scanLoading ? 'Scanning...' : 'Choose File'}
+                    {scanLicenseLoading ? "Scanning..." : "Choose File"}
                   </span>
                 </label>
               </div>
@@ -252,17 +316,30 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
             </div>
           )}
 
-     {/* Success message when data is scanned */}
-          {scannedData && mode !== 'manual' && (
+          {/* Success message when data is scanned from backend (image) */}
+          {scannedData && mode !== "manual" && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-green-800 font-medium">
-                ✓ Data extracted successfully! Review and complete the form below.
+                ✓ Data extracted successfully! Review and complete the form
+                below.
               </p>
             </div>
           )}
 
+          {/* Optional: debug view of locally parsed licenseRaw */}
+          {licenseRaw && mode === "manual" && (
+            <details className="mb-4 text-xs text-gray-600">
+              <summary className="cursor-pointer">
+                Show raw license data (from barcode)
+              </summary>
+              <pre className="mt-1 whitespace-pre-wrap">
+                {JSON.stringify(licenseRaw, null, 2)}
+              </pre>
+            </details>
+          )}
+
           {/* Form (shown after scan/barcode or in manual mode) */}
-          {mode === 'manual' && (
+          {mode === "manual" && (
             <form onSubmit={handleSubmit} className="space-y-4">
               {!student && (
                 <button
@@ -270,6 +347,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                   onClick={() => {
                     setMode(null);
                     dispatch(clearScannedData());
+                    setLicenseRaw(null);
                   }}
                   className="mb-4 text-blue-600 hover:text-blue-700 flex items-center space-x-1"
                 >
@@ -441,10 +519,10 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-300"
-                  disabled={scanLoading}
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={barcodeLoading || scanLicenseLoading}
                 >
-                  {student ? 'Update Student' : 'Add Student'}
+                  {student ? "Update Student" : "Add Student"}
                 </button>
               </div>
             </form>
