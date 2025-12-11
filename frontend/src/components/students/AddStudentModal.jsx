@@ -61,7 +61,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
         emergency_contact: student.emergency_contact || "",
         emergency_phone: student.emergency_phone || "",
       });
-      setMode("manual"); // Go directly to form for editing
+      setMode("manual");
     }
   }, [student]);
 
@@ -214,7 +214,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
               </button>
 
               {/* Image Upload Option */}
-              <button
+              {/* <button
                 onClick={() => setMode("scan")}
                 className="w-full p-6 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
               >
@@ -231,7 +231,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                     </p>
                   </div>
                 </div>
-              </button>
+              </button> */}
 
               {/* Manual Entry Option */}
               <button
@@ -378,7 +378,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                 {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
+                    Email
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -387,7 +387,6 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      required
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="john@example.com"
                     />
@@ -397,7 +396,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                 {/* Phone */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone *
+                    Phone
                   </label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -406,7 +405,6 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      required
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="(555) 123-4567"
                     />
@@ -472,7 +470,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                 {/* Emergency Contact */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Emergency Contact *
+                    Emergency Contact
                   </label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -481,7 +479,6 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                       name="emergency_contact"
                       value={formData.emergency_contact}
                       onChange={handleInputChange}
-                      required
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Jane Doe"
                     />
@@ -491,7 +488,7 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                 {/* Emergency Phone */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Emergency Phone *
+                    Emergency Phone
                   </label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -500,7 +497,6 @@ const StudentModal = ({ isOpen, onClose, student = null }) => {
                       name="emergency_phone"
                       value={formData.emergency_phone}
                       onChange={handleInputChange}
-                      required
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="(555) 987-6543"
                     />
